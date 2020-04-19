@@ -75,7 +75,7 @@ Additionally, you might want to set the "callbackurl_base" line in the cfg file 
    defined as per the included alarmserver.cfg example.
 
 4. Fire up the AlarmServer. Your devices should get created in smartthings, and you should start seeing events pushed to them within a few moments
-   on your smart phone.
+   on your smart phone. Don't forget to open port 8111 on the server's firewall.
 
 ## Thanks!
 Thanks goes out to the following people, without their previous work none of this would have been possible:
