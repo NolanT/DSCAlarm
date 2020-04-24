@@ -19,6 +19,8 @@ import hashlib
 import time
 import getopt
 import requests
+import logging
+from logging.handlers import RotatingFileHandler
 
 from envisalinkdefs import evl_ResponseTypes
 from envisalinkdefs import evl_Defaults
@@ -44,13 +46,13 @@ def getMessageType(code):
     return evl_ResponseTypes[code]
 
 def alarmserver_logger(message, type = 0, level = 0):
+    log_msg = str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))+" "+message
+    # print (log_msg)
     if LOGTOFILE:
-        outfile.write(str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))+" "+message+"\n")
-        outfile.flush()
+        outfile.info(log_msg)
     else:
-        print((str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))+" "+message))
+        print(log_msg)
     
-
 def to_chars(string):
     chars = []
     for char in string:
@@ -59,11 +61,10 @@ def to_chars(string):
 
 def get_checksum(code, data):
     strcheck = sum(to_chars(code)+to_chars(data))
-    # return ("%02X" % sum(to_chars(code)+to_chars(data)))[-2:]
     return format(strcheck, "02X")[-2:]
 
-# currently supports pushover notifications, more to be added
-# including email, text, etc.
+# currently supports pushover notifications
+# more to be added, including email, text, etc.
 # to be fixed!
 def send_notification(config, message):
     if config.PUSHOVER_ENABLE == True:
@@ -90,6 +91,8 @@ class AlarmServerConfig():
         self._config.read(configfile)
 
         self.LOGURLREQUESTS = self.read_config_var("alarmserver", "logurlrequests", True, "bool")
+        self.LOGMAXSIZE = self.read_config_var("alarmserver","logmaxsize", 102400, "int")
+        self.LOGMAXBACKUPS = self.read_config_var("alarmserver", "logmaxbackups", 5, "int")
         self.HTTPPORT = self.read_config_var("alarmserver", "httpport", 8111, "int")
         self.CERTFILE = self.read_config_var("alarmserver", "certfile", "server.crt", "str")
         self.KEYFILE = self.read_config_var("alarmserver", "keyfile", "server.key", "str")
@@ -383,16 +386,16 @@ class EnvisalinkClient(asynchat.async_chat):
                         return event["name"].format(str(self._config.ZONENAMES[int(parameters)]))
         return event["name"].format(str(parameters))
 
-    #envisalink event handlers, some events are unhandeled.
+    # envisalink event handlers, some events are unhandeled.
     def handle_login(self, code, parameters, event, message):
         if parameters == "3":
             self._loggedin = True
             self.send_command("005", self._config.ENVISALINKPASS)
         if parameters == "1":
             self.send_command("001", "")
-            #this was to update bypass status, but sometimes would change alarm arm status from stay/away
-            #time.sleep(2)
-            #self.send_command("071", "1*1#")
+            # this was to update bypass status, but sometimes would change alarm arm status from stay/away
+            # time.sleep(2)
+            # self.send_command("071", "1*1#")
         if parameters == "0":
             alarmserver_logger("Incorrect envisalink password")
             sys.exit(0)
@@ -778,7 +781,6 @@ class ProxyChannel(asynchat.async_chat):
 
     def collect_incoming_data(self, data):
         # Append incoming data to the buffer
-        # self._buffer.append(data)
         self._buffer.append(data.decode("utf-8"))
 
     def found_terminator(self):
@@ -845,8 +847,6 @@ class EnvisalinkProxy(asyncore.dispatcher):
             alarmserver_logger("Incoming proxy connection from %s" % repr(addr))
             handler = ProxyChannel(server, self._config.ENVISALINKPROXYPASS, sock, addr)
 
-def usage():
-    print("Usage: "+sys.argv[0]+" -c <configfile>")
 
 def main(argv):
     try:
@@ -864,35 +864,53 @@ def main(argv):
 
 
 if __name__=="__main__":
-    conffile="alarmserver.cfg"
+    cfg_file="alarmserver.cfg"
     main(sys.argv[1:])
-    print(("Using configuration file %s" % conffile))
-    config = AlarmServerConfig(conffile)
-    if LOGTOFILE:
-        outfile=open(config.LOGFILE,"a")
-        print(("Writing logfile to %s" % config.LOGFILE))
-
-    alarmserver_logger("Alarm Server Starting")
-    alarmserver_logger("Currently Supporting Envisalink 2DS/3/4 only")
-    alarmserver_logger("Tested on a DSC PC1616 + EVL-3")
-    alarmserver_logger("and on a DSC PC1832 + EVL-2DS")
-    alarmserver_logger("and on a DSC PC1832 v4.6 + EVL-4")
-    alarmserver_logger("and on a DSC PC1864 v4.6 + EVL-3")
-
-    DeviceSetup(config)
-    server = AlarmServer(config)
-    proxy = EnvisalinkProxy(config, server)
-
-    try:
-        while True:
-            asyncore.loop(timeout=2, count=1)
-            # insert scheduling code here.
-    except KeyboardInterrupt:
-        print("Crtl+C pressed. Shutting down.")
-        alarmserver_logger("Shutting down from Ctrl+C")
+    
+    pathname = os.path.dirname(sys.argv[0])
+    scriptpath = os.path.abspath(pathname)
+    conffile = os.path.join(scriptpath,cfg_file)
+    
+    if os.path.exists(conffile):
+        config = AlarmServerConfig(conffile)
+        print(("Using configuration file %s" % conffile))
+    
         if LOGTOFILE:
-            outfile.close()
-        
-        server.shutdown(socket.SHUT_RDWR) 
-        server.close() 
-        sys.exit()
+            outfile_handler = RotatingFileHandler(config.LOGFILE, mode="a", maxBytes=(config.LOGMAXSIZE), backupCount=config.LOGMAXBACKUPS)
+            outfile = logging.getLogger()
+            outfile.setLevel(logging.INFO)
+            outfile.addHandler(outfile_handler)
+            # outfile=open(config.LOGFILE,"a")
+            print(("Writing logfile to %s" % config.LOGFILE))
+
+        alarmserver_logger("Alarm Server Starting...")
+        alarmserver_logger("Currently Supporting Envisalink 2DS/3/4 only")
+        alarmserver_logger("Tested on a DSC PC1616 + EVL-3")
+        alarmserver_logger("and on a DSC PC1832 + EVL-2DS")
+        alarmserver_logger("and on a DSC PC1832 v4.6 + EVL-4")
+        alarmserver_logger("and on a DSC PC1864 v4.6 + EVL-3")
+
+        DeviceSetup(config)
+        server = AlarmServer(config)
+        proxy = EnvisalinkProxy(config, server)
+
+        try:
+            while True:
+                asyncore.loop(timeout=2, count=1)
+                # insert scheduling code here.
+        except KeyboardInterrupt:
+            print("Crtl+C pressed.")
+            alarmserver_logger("Server interrupted by Ctrl+C.")
+            # if LOGTOFILE:
+            #     outfile.close()
+            shutdown_server(sever)
+        else:
+            shutdown_server(server)
+    else:
+        print("Could not find configuration file %s" % confile)
+
+def shutdown_server(server):
+    alarmserver_logger("Shutting down server.")
+    server.shutdown(socket.SHUT_RDWR) 
+    server.close()
+    sys.exit()
