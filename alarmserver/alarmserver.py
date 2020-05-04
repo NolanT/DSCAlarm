@@ -47,7 +47,6 @@ def getMessageType(code):
 
 def alarmserver_logger(message, type = 0, level = 0):
     log_msg = str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))+" "+message
-    # print (log_msg)
     if LOGTOFILE:
         outfile.info(log_msg)
     else:
@@ -64,7 +63,7 @@ def get_checksum(code, data):
     return format(strcheck, "02X")[-2:]
 
 # currently supports pushover notifications
-# more to be added, including email, text, etc.
+# more can be added, including email, text, etc.
 # to be fixed!
 def send_notification(config, message):
     if config.PUSHOVER_ENABLE == True:
@@ -105,7 +104,7 @@ class AlarmServerConfig():
         self.ENVISALINKPROXYPORT = self.read_config_var("envisalink", "proxyport", self.ENVISALINKPORT, "int")
         self.ENVISALINKPROXYPASS = self.read_config_var("envisalink", "proxypass", self.ENVISALINKPASS, "str")
         self.PUSHOVER_ENABLE = self.read_config_var("pushover", "enable", False, "bool")
-        self.PUSHOVER_USERTOKEN = self.read_config_var("pushover", "usertoken", False, "str")
+        self.PUSHOVER_USERTOKEN = self.read_config_var("pushover", "usertoken", "", "str")
         self.ALARMCODE = self.read_config_var("envisalink", "alarmcode", "1111", "str")
         self.EVENTTIMEAGO = self.read_config_var("alarmserver", "eventtimeago", True, "bool")
         self.LOGFILE = self.read_config_var("alarmserver", "logfile", "", "str")
@@ -121,29 +120,30 @@ class AlarmServerConfig():
         self.PARTITIONNAMES={}
         self.PARTITIONS={}
         for i in range(1, MAXPARTITIONS+1):
-            self.PARTITIONNAMES[i]=self.read_config_var("partition"+str(i), "name", False, "str", True)
-            stay=self.read_config_var("partition"+str(i), "stay", False, "str", True)
-            away=self.read_config_var("partition"+str(i), "away", False, "str", True)
-            simplestay=self.read_config_var("partition"+str(i), "simplestay", False, "str", True)
-            simpleaway=self.read_config_var("partition"+str(i), "simpleaway", False, "str", True)
-            if stay!=False or away!=False or simplestay!=False or simpleaway!=False:
+            self.PARTITIONNAMES[i]=self.read_config_var("partition"+str(i), "name", "", "str", True)
+            stay=self.read_config_var("partition"+str(i), "stay", "", "str", True)
+            away=self.read_config_var("partition"+str(i), "away", "", "str", True)
+            simplestay=self.read_config_var("partition"+str(i), "simplestay", "", "str", True)
+            simpleaway=self.read_config_var("partition"+str(i), "simpleaway", "", "str", True)
+            if (stay!="") or (away!="") or (simplestay!="") or (simpleaway!=""):
                 self.PARTITIONS[i] = {}
-                if away!=False:
+                if away!="":
                     self.PARTITIONS[i]["away"]=away
-                if stay!=False:
+                if stay!="":
                     self.PARTITIONS[i]["stay"]=stay
-                if simpleaway!=False:
+                if simpleaway!="":
                     self.PARTITIONS[i]["simpleaway"]=simpleaway
-                if simplestay!=False:
+                if simplestay!="":
                     self.PARTITIONS[i]["simplestay"]=simplestay
 
         self.ZONES={}
         self.ZONENAMES={}
         for i in range(1, MAXZONES+1):
-            self.ZONENAMES[i]=self.read_config_var("zone"+str(i), "name", False, "str", True)
-            type = self.read_config_var("zone"+str(i), "type", False, "str", True)
+            self.ZONENAMES[i]=self.read_config_var("zone"+str(i), "name", "", "str", True)
+            type = self.read_config_var("zone"+str(i), "type", "", "str", True)
             partition = self.read_config_var("zone"+str(i), "partition", "1", "str", True)
-            if(self.ZONENAMES[i]!=False and type!=False):
+                        
+            if (self.ZONENAMES[i]!="" and type!=""):
                 self.ZONES[i] = {}
                 self.ZONES[i]["name"] = self.ZONENAMES[i]
                 self.ZONES[i]["type"] = type
@@ -151,7 +151,7 @@ class AlarmServerConfig():
 
         self.ALARMUSERNAMES={}
         for i in range(1, MAXALARMUSERS+1):
-            self.ALARMUSERNAMES[i]=self.read_config_var("alarmserver", "user"+str(i), False, "str", True)
+            self.ALARMUSERNAMES[i]=self.read_config_var("alarmserver", "user"+str(i), "", "str", True)
 
         if self.PUSHOVER_USERTOKEN == "" and self.PUSHOVER_ENABLE == True: self.PUSHOVER_ENABLE = False
 
@@ -356,7 +356,7 @@ class EnvisalinkClient(asynchat.async_chat):
                 if event["type"] == "partition":
                     # If parameters includes extra digits then this next line would fail
                     # without looking at just the first digit which is the partition number
-                    if int(parameters[0]) in self._config.PARTITIONNAMES and self._config.PARTITIONNAMES[int(parameters[0])]!=False:
+                    if int(parameters[0]) in self._config.PARTITIONNAMES and self._config.PARTITIONNAMES[int(parameters[0])]!="":
                         # After partition number can be either a usercode
                         # or for event 652 a type of arm mode (single digit)
                         # Usercode is always 4 digits padded with zeros
@@ -382,7 +382,7 @@ class EnvisalinkClient(asynchat.async_chat):
                         else:
                             return event["name"].format(str(self._config.PARTITIONNAMES[int(parameters[0])]), int(parameters[1:]))
                 elif event["type"] == "zone":
-                    if int(parameters) in self._config.ZONENAMES and self._config.ZONENAMES[int(parameters)]!=False:
+                    if int(parameters) in self._config.ZONENAMES and self._config.ZONENAMES[int(parameters)]!="":
                         return event["name"].format(str(self._config.ZONENAMES[int(parameters)]))
         return event["name"].format(str(parameters))
 
@@ -407,14 +407,14 @@ class EnvisalinkClient(asynchat.async_chat):
             if event["type"] in ("partition", "zone"):
                 if event["type"] == "zone":
                     if int(parameters) in self._config.ZONENAMES:
-                        if self._config.ZONENAMES[int(parameters)]!=False:
+                        if self._config.ZONENAMES[int(parameters)]!="":
                             if not int(parameters) in ALARMSTATE[event["type"]]:
                                 ALARMSTATE[event["type"]][int(parameters)] = {"name" : self._config.ZONENAMES[int(parameters)]}
                         else:
                             if not int(parameters) in ALARMSTATE[event["type"]]: ALARMSTATE[event["type"]][int(parameters)] = {}
                 elif event["type"] == "partition":
                     if int(parameters[0]) in self._config.PARTITIONNAMES:
-                        if self._config.PARTITIONNAMES[int(parameters[0])]!=False:
+                        if self._config.PARTITIONNAMES[int(parameters[0])]!="":
                             if not int(parameters) in ALARMSTATE[event["type"]]: ALARMSTATE[event["type"]][int(parameters)] = {"name" : self._config.PARTITIONNAMES[int(parameters)]}
                         else:
                             if not int(parameters) in ALARMSTATE[event["type"]]: ALARMSTATE[event["type"]][int(parameters)] = {}
@@ -476,7 +476,7 @@ class EnvisalinkClient(asynchat.async_chat):
                  binary = bin(int(str(parameters[begin:end]), 16))[2:].zfill(8)
                count = count - 1
                # Is our zone setup with a custom name, if so we care about it
-               if zone in self._config.ZONENAMES and self._config.ZONENAMES[zone]!=False:
+               if zone in self._config.ZONENAMES and self._config.ZONENAMES[zone]!="":
                  value = "on" if (binary[count] == "1") else "off"
                  update["parameters"][str(zone)]=value
            elif code in [510,511]:
@@ -525,7 +525,7 @@ class EnvisalinkClient(asynchat.async_chat):
              }
            elif event["type"] == "partition":
              # Is our partition setup with a custom name?
-             if int(parameters[0]) in self._config.PARTITIONNAMES and self._config.PARTITIONNAMES[int(parameters[0])]!=False:
+             if int(parameters[0]) in self._config.PARTITIONNAMES and self._config.PARTITIONNAMES[int(parameters[0])]!="":
                if code == 655:
                  self.send_command("071", "1*1#")
 
@@ -569,7 +569,7 @@ class EnvisalinkClient(asynchat.async_chat):
                return
            elif event["type"] == "zone":
              # Is our zone setup with a custom name, if so we care about it
-             if int(parameters) in self._config.ZONENAMES and self._config.ZONENAMES[int(parameters)]!=False:
+             if int(parameters) in self._config.ZONENAMES and self._config.ZONENAMES[int(parameters)]!="":
                codeMap = {
                  601:"alarm",
                  602:"noalarm",
@@ -796,7 +796,6 @@ class ProxyChannel(asynchat.async_chat):
             self.send_command("500005")
             expectedstring = "005" + self._proxypass + get_checksum("005", self._proxypass)
             if line == expectedstring:
-            # if line == ("005" + self._proxypass + get_checksum("005", self._proxypass)):
                 alarmserver_logger("Proxy User Authenticated")
                 CONNECTEDCLIENTS[self._straddr]=self
                 self._authenticated = True
@@ -880,7 +879,6 @@ if __name__=="__main__":
             outfile = logging.getLogger()
             outfile.setLevel(logging.INFO)
             outfile.addHandler(outfile_handler)
-            # outfile=open(config.LOGFILE,"a")
             print(("Writing logfile to %s" % config.LOGFILE))
 
         alarmserver_logger("Alarm Server Starting...")
@@ -901,8 +899,6 @@ if __name__=="__main__":
         except KeyboardInterrupt:
             print("Crtl+C pressed.")
             alarmserver_logger("Server interrupted by Ctrl+C.")
-            # if LOGTOFILE:
-            #     outfile.close()
             shutdown_server(sever)
         else:
             shutdown_server(server)
