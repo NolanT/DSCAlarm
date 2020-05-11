@@ -286,7 +286,11 @@ class EnvisalinkClient(asynchat.async_chat):
                 time.sleep(1)
 
         self.create_socket()
-        self.connect((self._config.ENVISALINKHOST, self._config.ENVISALINKPORT))
+        try:
+            self.connect((self._config.ENVISALINKHOST, self._config.ENVISALINKPORT))
+        except socket.error as err:
+            alarmserver_logger("Error with socket.connect: %s" % (err))
+            raise
 
     def collect_incoming_data(self, data):
         # Append incoming data to the buffer
@@ -633,7 +637,11 @@ class AlarmServer(asyncore.dispatcher):
         asyncore.dispatcher.__init__(self)
 
         # Create Envisalink client object
-        self._envisalinkclient = EnvisalinkClient(config)
+        try:
+            self._envisalinkclient = EnvisalinkClient(config)
+        except:
+            alarmserver_logger("Error in Envisalink settings.")
+            raise
 
         # Store config
         self._config = config
@@ -889,7 +897,13 @@ if __name__=="__main__":
         alarmserver_logger("and on a DSC PC1864 v4.6 + EVL-3")
 
         DeviceSetup(config)
-        server = AlarmServer(config)
+        
+        try:
+           server = AlarmServer(config)
+        except:
+            alarmserver_logger("Shutting down server due to errors.")
+            sys.exit()
+
         proxy = EnvisalinkProxy(config, server)
 
         try:
@@ -899,7 +913,7 @@ if __name__=="__main__":
         except KeyboardInterrupt:
             print("Crtl+C pressed.")
             alarmserver_logger("Server interrupted by Ctrl+C.")
-            shutdown_server(sever)
+            shutdown_server(server)
         else:
             shutdown_server(server)
     else:
