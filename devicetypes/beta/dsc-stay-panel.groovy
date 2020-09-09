@@ -232,11 +232,13 @@ def nokey() {
 }
 
 def on() {
-  stay()
+  sendPartitionCommand("stay")
+  //stay()
 }
 
 def off() {
-  disarm()
+  sendPartitionCommand("disarm")
+  //disarm()
 }
 
 def key() {
