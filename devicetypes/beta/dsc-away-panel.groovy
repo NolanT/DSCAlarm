@@ -234,11 +234,13 @@ def nokey() {
 }
 
 def on() {
-  away()
+  sendPartitionCommand("away")
+  //away()
 }
 
 def off() {
-  disarm()
+  sendPartitionCommand("disarm")
+  //disarm()
 }
 
 def key() {
