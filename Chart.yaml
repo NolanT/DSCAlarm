@@ -1,0 +1,19 @@
+apiVersion: v2
+name: alarmserver
+version: 1.0.0
+appVersion: 1.0.0
+description: AlarmServer for Samsung SmartThings
+keywords:
+  - smartthings
+  - dsc
+home: https://github.com/NolanT/DSCAlarm
+icon: 
+sources:
+  - https://github.com/rtorchia/DSCAlarm
+  - https://github.com/k8s-at-home/charts
+maintainers:
+  - name: NolanT
+dependencies:
+  - name: common
+    repository: https://library-charts.k8s-at-home.com
+    version: 2.5.0
