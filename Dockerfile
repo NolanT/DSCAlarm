@@ -1,4 +1,4 @@
-FROM python:3
+FROM python:3.10.0b4
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
