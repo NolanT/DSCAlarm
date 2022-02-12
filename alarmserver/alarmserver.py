@@ -314,7 +314,6 @@ class EnvisalinkClient(asynchat.async_chat):
         self._loggedin = False
         self.close()
         alarmserver_logger("Error, disconnected from %s:%i" % ( self._config.ENVISALINKHOST, self._config.ENVISALINKPORT))
-        print("ERROR", msg = sys.stderror)
         self.do_connect(True)
 
     def send_command(self, code, data, checksum = True):
