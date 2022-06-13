@@ -871,11 +871,12 @@ def main(argv):
 
 if __name__=="__main__":
     cfg_file="alarmserver.cfg"
-    main(sys.argv[1:])
     
     pathname = os.path.dirname(sys.argv[0])
     scriptpath = os.path.abspath(pathname)
     conffile = os.path.join(scriptpath,cfg_file)
+    
+    main(sys.argv[1:])
     
     if os.path.exists(conffile):
         config = AlarmServerConfig(conffile)
