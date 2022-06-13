@@ -11,4 +11,4 @@ ADD ./alarmserver .
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-CMD [ "python3", "alarmserver.py"]
+CMD [ "python3", "alarmserver.py", "-c", "/config/alarmserver.cfg"]
